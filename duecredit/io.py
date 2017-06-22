@@ -49,8 +49,24 @@ def import_doi(doi, sleep=0.5, retries=10):
             return doi
 
     # else -- fetch it
-    headers = {'Accept': 'application/x-bibtex; charset=utf-8'}
-    url = 'http://dx.doi.org/' + doi
+    headers = {}
+    url = 'http://data.datacite.org/application/x-bibtex/' + doi
+
+    # With zenodo, datacite has a problem: https://github.com/datacite/datacite/issues/129
+    # so we need to do some dance
+    if '/zenodo' in doi:
+        # we need two stages -- first fetch the redirect and then obtain
+        # record number
+        r = requests.get('http://dx.doi.org/' + doi)
+        r.encoding = 'UTF-8'
+        if 'zenodo.org/record' in r.url:
+            rec = r.url.split('/')[-1]
+            url = "https://sandbox.zenodo.org/api/records/%s?style=bibtex" % rec
+            headers = {'Accept': 'application/x-bibtex'}
+        else:
+            # we weren't redirected -- try original approach
+            pass
+
     while retries > 0:
         r = requests.get(url, headers=headers)
         r.encoding = 'UTF-8'
